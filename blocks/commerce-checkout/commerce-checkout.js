@@ -60,6 +60,11 @@ import ShippingStatus from '@dropins/storefront-order/containers/ShippingStatus.
 import { render as OrderProvider } from '@dropins/storefront-order/render.js';
 import { getUserTokenCookie } from '../../scripts/initializers/index.js';
 
+// API
+import { publishShoppingCartViewEvent } from '@dropins/storefront-cart/api.js';
+
+import { readBlockConfig } from '../../scripts/aem.js';
+
 // Block-level
 import createModal from '../modal/modal.js';
 
@@ -109,6 +114,17 @@ export default async function decorate(block) {
   import('../../scripts/initializers/account.js');
   import('../../scripts/initializers/checkout.js');
 
+  // Configuration
+  const {
+    'hide-heading': hideHeading = 'false',
+    'max-items': maxItems,
+    'hide-attributes': hideAttributes = '',
+    'enable-item-remove': enableRemoveItem = 'true',
+    'enable-estimate-shipping': enableEstimateShipping = 'false',
+    'start-shopping-url': startShoppingURL = '',
+    'checkout-url': checkoutURL = '',
+  } = readBlockConfig(block);
+
   setMetaTags('Checkout');
   document.title = 'Checkout';
 
@@ -135,17 +151,21 @@ export default async function decorate(block) {
           <div class="checkout__block checkout__empty-cart"></div>
           <div class="checkout__block checkout__server-error"></div>
           <div class="checkout__block checkout__out-of-stock"></div>
+          
+          <div class="checkout__block checkout__delivery"></div>
+          
+          <div class="checkout__block checkout__list"></div>
+          
           <div class="checkout__block checkout__login"></div>
           <div class="checkout__block checkout__shipping-form"></div>
           <div class="checkout__block checkout__bill-to-shipping"></div>
-          <div class="checkout__block checkout__delivery"></div>
-          <div class="checkout__block checkout__payment-methods"></div>
           <div class="checkout__block checkout__billing-form"></div>
+          
+          <div class="checkout__block checkout__payment-methods"></div>
           <div class="checkout__block checkout__place-order"></div>
         </div>
         <div class="checkout__aside">
           <div class="checkout__block checkout__order-summary"></div>
-          <div class="checkout__block checkout__cart-summary"></div>
         </div>
       </div>
     </div>
@@ -162,6 +182,7 @@ export default async function decorate(block) {
   const $serverError = checkoutFragment.querySelector(
     '.checkout__server-error',
   );
+  const $list = checkoutFragment.querySelector('.checkout__list');
   const $outOfStock = checkoutFragment.querySelector('.checkout__out-of-stock');
   const $login = checkoutFragment.querySelector('.checkout__login');
   const $shippingForm = checkoutFragment.querySelector(
@@ -313,43 +334,54 @@ export default async function decorate(block) {
       },
     })($orderSummary),
 
+    // Cart List
     CartProvider.render(CartSummaryList, {
-      variant: 'secondary',
-      slots: {
-        Heading: (headingCtx) => {
-          const title = 'Your Cart ({count})';
+      hideHeading: false,
+      routeProduct: (product) => `/products/${product.url.urlKey}/${product.topLevelSku}`,
+      routeEmptyCartCTA: startShoppingURL ? () => startShoppingURL : undefined,
+      maxItems: parseInt(maxItems, 10) || undefined,
+      attributesToHide: hideAttributes.split(',').map((attr) => attr.trim().toLowerCase()),
+      enableUpdateItemQuantity: true,
+      enableRemoveItem: enableRemoveItem === 'true',
+    })($list),
 
-          const cartSummaryListHeading = document.createElement('div');
-          cartSummaryListHeading.classList.add('cart-summary-list__heading');
-
-          const cartSummaryListHeadingText = document.createElement('div');
-          cartSummaryListHeadingText.classList.add(
-            'cart-summary-list__heading-text',
-          );
-
-          cartSummaryListHeadingText.innerText = title.replace(
-            '({count})',
-            headingCtx.count ? `(${headingCtx.count})` : '',
-          );
-          const editCartLink = document.createElement('a');
-          editCartLink.classList.add('cart-summary-list__edit');
-          editCartLink.href = '/cart';
-          editCartLink.rel = 'noreferrer';
-          editCartLink.innerText = 'Edit';
-
-          cartSummaryListHeading.appendChild(cartSummaryListHeadingText);
-          cartSummaryListHeading.appendChild(editCartLink);
-          headingCtx.appendChild(cartSummaryListHeading);
-
-          headingCtx.onChange((nextHeadingCtx) => {
-            cartSummaryListHeadingText.innerText = title.replace(
-              '({count})',
-              nextHeadingCtx.count ? `(${nextHeadingCtx.count})` : '',
-            );
-          });
-        },
-      },
-    })($cartSummary),
+    // CartProvider.render(CartSummaryList, {
+    //   variant: 'secondary',
+    //   slots: {
+    //     Heading: (headingCtx) => {
+    //       const title = 'Your Cart ({count})';
+    //
+    //       const cartSummaryListHeading = document.createElement('div');
+    //       cartSummaryListHeading.classList.add('cart-summary-list__heading');
+    //
+    //       const cartSummaryListHeadingText = document.createElement('div');
+    //       cartSummaryListHeadingText.classList.add(
+    //         'cart-summary-list__heading-text',
+    //       );
+    //
+    //       cartSummaryListHeadingText.innerText = title.replace(
+    //         '({count})',
+    //         headingCtx.count ? `(${headingCtx.count})` : '',
+    //       );
+    //       const editCartLink = document.createElement('a');
+    //       editCartLink.classList.add('cart-summary-list__edit');
+    //       editCartLink.href = '/cart';
+    //       editCartLink.rel = 'noreferrer';
+    //       editCartLink.innerText = 'Edit';
+    //
+    //       cartSummaryListHeading.appendChild(cartSummaryListHeadingText);
+    //       cartSummaryListHeading.appendChild(editCartLink);
+    //       headingCtx.appendChild(cartSummaryListHeading);
+    //
+    //       headingCtx.onChange((nextHeadingCtx) => {
+    //         cartSummaryListHeadingText.innerText = title.replace(
+    //           '({count})',
+    //           nextHeadingCtx.count ? `(${nextHeadingCtx.count})` : '',
+    //         );
+    //       });
+    //     },
+    //   },
+    // })($cartSummary),
 
     CheckoutProvider.render(PlaceOrder, {
       handleValidation: () => {

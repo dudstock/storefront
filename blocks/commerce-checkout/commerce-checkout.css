@@ -112,7 +112,7 @@
 
 /* Cart Summary */
 .checkout__block .cart-cart-summary-list {
-  padding: var(--spacing-medium);
+  padding: 0;
 }
 
 /* Order Summary Coupon */
@@ -126,7 +126,7 @@
 
 /* temporary fix to hide the default cart heading */
 [data-testid='default-cart-heading'] {
-  display: none;
+  /*display: none;*/
 }
 
 .cart-summary-list__heading {
